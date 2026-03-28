@@ -1,18 +1,20 @@
-import "server-only";
+import "server-only"
 
-import { z } from "zod";
+import { z } from "zod"
 
-import { defaultConfig } from "../google-genai/google-genai-constants";
-import { streamText } from "ai";
-import { createGeminiProvider } from "ai-sdk-provider-gemini-cli";
-import { InferenceRequestOptions } from "../../types/inference-request-options-new";
+import { defaultConfig } from "../google-genai/google-genai-constants"
+import { streamText, StreamTextResult, ToolSet } from "ai"
+import { createGeminiProvider } from "ai-sdk-provider-gemini-cli"
+import { InferenceRequestOptions } from "../../types/inference-request-options"
 
-export class GoogleGenAiClient {
+export class GeminiCliClient {
   protected _gemini = createGeminiProvider({
     authType: "oauth-personal",
-  });
+  })
 
-  public generateResponse = (params: InferenceRequestOptions) => {
+  public generateContent = (
+    params: InferenceRequestOptions
+  ): StreamTextResult<ToolSet, never> => {
     const result = streamText({
       model: this._gemini(params.model, {
         ...defaultConfig,
@@ -24,10 +26,10 @@ export class GoogleGenAiClient {
           ? z.toJSONSchema(params.responseJsonSchema)
           : undefined,
       }),
-      system: params.systemPrompt,
+      system: params.system,
       messages: params.messages,
-    });
+    })
 
-    return result;
-  };
+    return result
+  }
 }

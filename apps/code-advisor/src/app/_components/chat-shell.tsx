@@ -1,52 +1,52 @@
-"use client";
+"use client"
 
-import { getFileContents } from "@/actions/get-file-contents";
-import { FileTreeNode } from "@/actions/get-file-tree";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { getFileContents } from "@/actions/get-file-contents"
+import { FileTreeNode } from "@/actions/get-file-tree"
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
-import { useChatStore } from "@/stores/chat-store";
-import { createCodePlugin } from "@streamdown/code";
-import { useActionState, useMemo, useState } from "react";
-import { Streamdown } from "streamdown";
-import { useShallow } from "zustand/shallow";
+} from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
+import { useChatStore } from "@/stores/chat-store"
+import { useChat } from "@ai-sdk/react"
+import { createCodePlugin } from "@streamdown/code"
+import { FileUIPart } from "ai"
+import { useActionState, useMemo, useState } from "react"
+import { Streamdown } from "streamdown"
+import { useShallow } from "zustand/shallow"
 import {
   attachSystemInstruction,
   buildUserPrompt,
-} from "../../utils/build-prompt";
-import { FileExplorer } from "./file-explorer";
-import { GeneratedPrompt } from "./generated-prompt";
-import { SystemPromptMenu } from "./system-prompt-menu";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+} from "../../utils/build-prompt"
+import { FileExplorer } from "./file-explorer"
+import { GeneratedPrompt } from "./generated-prompt"
+import { SystemPromptMenu } from "./system-prompt-menu"
 
 export const ChatShellContent = ({
   totalFiles,
   initialPrompts,
   treeNodes,
 }: {
-  totalFiles: number;
-  initialPrompts: string[];
-  treeNodes: FileTreeNode[];
+  totalFiles: number
+  initialPrompts: string[]
+  treeNodes: FileTreeNode[]
 }) => {
-  "use client";
+  "use client"
 
   const store = useChatStore(
     useShallow((s) => ({
@@ -58,6 +58,7 @@ export const ChatShellContent = ({
       fileContents: s.fileContents,
       agentResponse: s.agentResponse,
       includeDependencies: s.includeDependencies,
+      images: s.images,
       setUserQuery: s.setUserQuery,
       setImageUrls: s.setImageUrls,
       setFileContents: s.setFileContents,
@@ -65,26 +66,37 @@ export const ChatShellContent = ({
       setIncludeDependencies: s.setIncludeDependencies,
       resetChatResult: s.resetChatResult,
       resetAll: s.resetAll,
-    })),
-  );
+      setImages: s.setImages,
+    }))
+  )
 
-  const [showFileExplorer, setShowFileExplorer] = useState(true);
-  const [isPromptGenerated, setIsPromptGenerated] = useState(false);
+  const [showFileExplorer, setShowFileExplorer] = useState(true)
+  const [isPromptGenerated, setIsPromptGenerated] = useState(false)
+  const [userPrompt, setUserPrompt] = useState("")
+  const [finalPrompt, setFinalPrompt] = useState("")
 
   const [, handleFetchFileContents, isFetchingFiles] = useActionState(
     async (prevState: unknown, formData: FormData) => {
-      const { data: fileContents, error } = await getFileContents({}, formData);
-      if (fileContents) {
-        store.setFileContents(fileContents);
-        setIsPromptGenerated(true);
-        return { error: null };
+      console.log("fetching")
+      const { data, error } = await getFileContents({}, formData)
+      if (error || !data) {
+        return {
+          error: error ?? "Se produjo un error al analizar los archivos",
+        }
       }
-      return {
-        error: error ?? "Se produjo un error al analizar los archivos",
-      };
+      if (data.fileContents) {
+        console.log(data.fileContents)
+        store.setFileContents(data.fileContents)
+        store.setImages(data.imageFiles)
+        const userPrompt = buildUserPrompt(store.userQuery, data.fileContents)
+        setUserPrompt(userPrompt)
+        setFinalPrompt(attachSystemInstruction(store.systemPrompt, userPrompt))
+        setIsPromptGenerated(true)
+        return { error: null }
+      }
     },
-    null,
-  );
+    null
+  )
 
   const {
     messages,
@@ -94,24 +106,15 @@ export const ChatShellContent = ({
     error,
     clearError,
     stop,
-  } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      body: {
-        system: store.systemPrompt,
-        provider: store.config.provider,
-        model: store.config.model,
-      },
-    }),
-  });
+  } = useChat()
 
   const fileErrors = useMemo(
     () =>
       store.fileContents
         .filter((file) => file.error)
         .map((file) => `${file.path}: ${file.error}`),
-    [store.fileContents],
-  );
+    [store.fileContents]
+  )
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (
@@ -121,28 +124,39 @@ export const ChatShellContent = ({
       store.selectedFiles.length > 0 &&
       store.userQuery.trim()
     ) {
-      e.preventDefault();
-      e.currentTarget.form?.requestSubmit();
+      e.preventDefault()
+      e.currentTarget.form?.requestSubmit()
     }
-  };
+  }
 
   const validFiles = useMemo(
     () => store.fileContents.filter((f) => !f.error && f.content),
-    [store.fileContents],
-  );
-  const isReadyToReview = isPromptGenerated && !!store.userQuery;
-  const isStreaming = status === "streaming";
-  const isDisabled = isFetchingFiles || isStreaming || isReadyToReview;
+    [store.fileContents]
+  )
+  const isReadyToReview = isPromptGenerated && !!store.userQuery
+  const isStreaming = status === "streaming" || status === "submitted"
+  const isDisabled = isFetchingFiles || isStreaming || isReadyToReview
 
-  const userPrompt = useMemo(
-    () => buildUserPrompt(store.userQuery, validFiles),
-    [store.userQuery, validFiles],
-  );
+  const handleSendToAI = () => {
+    clearError()
+    setMessages([])
+    const files: FileUIPart[] = store.images.map((i) => ({
+      type: "file",
+      mediaType: i.mimeType,
+      url: `${i.content}`,
+    }))
 
-  const finalPrompt = useMemo(
-    () => attachSystemInstruction(store.systemPrompt, userPrompt),
-    [store.systemPrompt, userPrompt],
-  );
+    sendMessage(
+      { text: userPrompt, files },
+      {
+        body: {
+          system: store.systemPrompt,
+          provider: store.config.provider,
+          model: store.config.model,
+        },
+      }
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 p-3">
@@ -150,13 +164,13 @@ export const ChatShellContent = ({
       <Card
         className={cn(
           "border-border/60 shadow-sm transition-colors",
-          isReadyToReview && "bg-muted/40",
+          isReadyToReview && "bg-muted/40"
         )}
       >
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 <span>Paso 1</span>
               </div>
               <CardTitle className="text-lg md:text-xl">
@@ -184,7 +198,7 @@ export const ChatShellContent = ({
               <span
                 className={cn(
                   "icon-[fa7-solid--folder-open] transition-transform",
-                  showFileExplorer && "rotate-12",
+                  showFileExplorer && "rotate-12"
                 )}
               />
               <span className="hidden sm:inline">
@@ -266,7 +280,7 @@ export const ChatShellContent = ({
               <div className="flex items-center justify-between gap-2">
                 <Label
                   htmlFor="imageUrls"
-                  className="text-sm font-medium flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm font-medium"
                 >
                   <span className="icon-[fa7-solid--images] text-muted-foreground" />
                   Imágenes de referencia (URLs)
@@ -278,8 +292,13 @@ export const ChatShellContent = ({
                 value={store.imageUrls}
                 onChange={(e) => store.setImageUrls(e.target.value)}
                 placeholder={`https://ejemplo.com/captura1.png\nhttps://ejemplo.com/captura2.png`}
-                className="min-h-20 text-xs font-mono"
+                className="min-h-20 font-mono text-xs"
                 disabled={isDisabled}
+              />
+              <input
+                type="hidden"
+                name="imageUrls"
+                value={String(store.imageUrls)}
               />
               <p className="text-[10px] text-muted-foreground">
                 Pega una URL por línea. Estas imágenes se enviarán como contexto
@@ -341,7 +360,7 @@ export const ChatShellContent = ({
         <Card className="border-border/60 shadow-sm">
           <CardHeader>
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 <span>Paso 2</span>
               </div>
               <CardTitle className="text-lg md:text-xl">
@@ -368,21 +387,7 @@ export const ChatShellContent = ({
                   type="button"
                   disabled={isStreaming}
                   className="inline-flex items-center gap-2"
-                  onClick={() => {
-                    // const payload: ChatCompletionPayload = {
-                    //   input: userPrompt,
-                    //   instruction: store.systemPrompt,
-                    //   imageUrls: store.imageUrls,
-                    //   provider: store.config.provider,
-                    //   model: store.config.model,
-                    // };
-                    clearError();
-                    setMessages([]);
-                    sendMessage({
-                      role: "user",
-                      parts: [{ type: "text", text: userPrompt }],
-                    });
-                  }}
+                  onClick={handleSendToAI}
                 >
                   {isStreaming ? (
                     <>
@@ -415,8 +420,8 @@ export const ChatShellContent = ({
               <Button
                 variant="outline"
                 onClick={() => {
-                  store.resetChatResult();
-                  setIsPromptGenerated(false);
+                  store.resetChatResult()
+                  setIsPromptGenerated(false)
                 }}
                 disabled={isStreaming}
                 className="inline-flex items-center gap-2"
@@ -428,8 +433,8 @@ export const ChatShellContent = ({
               <Button
                 variant="destructive"
                 onClick={() => {
-                  store.resetAll();
-                  setIsPromptGenerated(false);
+                  store.resetAll()
+                  setIsPromptGenerated(false)
                 }}
                 disabled={isStreaming}
                 className="inline-flex items-center gap-2 text-destructive hover:text-destructive"
@@ -471,15 +476,15 @@ export const ChatShellContent = ({
           <CardContent className="p-0">
             <div className="min-h-[200px] transition-all duration-500 ease-in-out">
               {messages.length > 1 ? (
-                <div className="prose prose-sm max-w-none p-6 dark:prose-invert overflow-anchor-none">
+                <div className="prose prose-sm dark:prose-invert overflow-anchor-none max-w-none p-6">
                   <Reasoning className="w-full" isStreaming={isStreaming}>
                     <ReasoningTrigger />
                     <ReasoningContent>
-                      {messages[messages.length - 1].parts
+                      {messages[messages.length - 1]?.parts
                         .map((part) =>
-                          part.type === "reasoning" ? part.text : "",
+                          part.type === "reasoning" ? part.text : ""
                         )
-                        .join(" ")}
+                        .join("\n") ?? "Sin razonamiento"}
                     </ReasoningContent>
                   </Reasoning>
                   <Streamdown
@@ -489,22 +494,22 @@ export const ChatShellContent = ({
                       }),
                     }}
                   >
-                    {messages[messages.length - 1].parts
+                    {messages[messages.length - 1]?.parts
                       .map((part) => (part.type === "text" ? part.text : ""))
-                      .join(" ")}
+                      .join(" ") ?? "Sin respuesta"}
                   </Streamdown>
                 </div>
               ) : isStreaming ? (
-                <div className="p-6 space-y-4">
-                  <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
-                  <div className="h-4 bg-muted animate-pulse rounded w-full" />
-                  <div className="h-4 bg-muted animate-pulse rounded w-5/6" />
+                <div className="space-y-4 p-6">
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
                 </div>
               ) : (
                 <div className="p-6">
                   <Alert
                     variant="destructive"
-                    className="border-destructive/20 bg-destructive/5 flex items-center"
+                    className="flex items-center border-destructive/20 bg-destructive/5"
                   >
                     <span className="icon-[fa7-solid--circle-exclamation] text-destructive" />
                     <AlertDescription className="ml-2 font-medium">
@@ -518,5 +523,5 @@ export const ChatShellContent = ({
         </Card>
       )}
     </div>
-  );
-};
+  )
+}

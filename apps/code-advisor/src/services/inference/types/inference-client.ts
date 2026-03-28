@@ -1,11 +1,8 @@
-import { InferenceRequestOptions } from "./inference-request-options";
-import { InferenceResponse } from "./inference-response";
+import { StreamTextResult, ToolSet } from "ai"
+import { InferenceRequestOptions } from "./inference-request-options"
 
 export type InferenceClient = {
-  generateResponse: (
-    params: InferenceRequestOptions,
-  ) => Promise<InferenceResponse>;
-  generateResponseStream: (
-    params: InferenceRequestOptions,
-  ) => Promise<InferenceResponse>;
-};
+  generateContent: (
+    params: InferenceRequestOptions
+  ) => StreamTextResult<ToolSet, never>
+}

@@ -1,38 +1,41 @@
-import { InferenceProvider } from "@/services/inference/schemas/provider-schema";
-import { InferenceModel } from "@/services/inference/types/inference-model";
-import { AgentResponse } from "@/types/agent-response";
-import { FileContent } from "@/types/file-content";
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { ImageFile } from "@/actions/fetch-image"
+import { InferenceProvider } from "@/services/inference/schemas/provider-schema"
+import { InferenceModel } from "@/services/inference/types/inference-model"
+import { AgentResponse } from "@/types/agent-response"
+import { FileContent } from "@/types/file-content"
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
 
 const DEFAULT_SYSTEM_PROMPT =
-  "Eres un asistente experto en análisis de código fuente. Analiza el código proporcionado y responde de forma clara y concisa.";
-const DEFAULT_PROVIDER: InferenceProvider = "vertex";
-const DEFAULT_MODEL = "gemini-2.5-flash";
+  "Eres un asistente experto en análisis de código fuente. Analiza el código proporcionado y responde de forma clara y concisa."
+const DEFAULT_PROVIDER: InferenceProvider = "nvidiaNim"
+const DEFAULT_MODEL = "qwen/qwen3.5-122b-a10b"
 
 interface ChatState {
-  config: InferenceModel;
-  selectedFiles: string[];
-  userQuery: string;
-  systemPrompt: string;
-  fileContents: FileContent[];
-  agentResponse: AgentResponse;
-  includeDependencies: boolean;
-  imageUrls: string;
+  config: InferenceModel
+  selectedFiles: string[]
+  userQuery: string
+  systemPrompt: string
+  fileContents: FileContent[]
+  agentResponse: AgentResponse
+  includeDependencies: boolean
+  imageUrls: string
+  images: ImageFile[]
 }
 
 interface ChatActions {
-  setConfig: (config: InferenceModel) => void;
-  setSelectedFiles: (files: string[]) => void;
-  setUserQuery: (query: string) => void;
-  setImageUrls: (urls: string) => void;
-  setSystemPrompt: (prompt: string) => void;
-  setFileContents: (data: FileContent[]) => void;
-  setAgentResponse: (response: AgentResponse) => void;
-  setIncludeDependencies: (val: boolean) => void;
-  resetSystemPrompt: () => void;
-  resetChatResult: () => void;
-  resetAll: () => void;
+  setConfig: (config: InferenceModel) => void
+  setSelectedFiles: (files: string[]) => void
+  setUserQuery: (query: string) => void
+  setImageUrls: (urls: string) => void
+  setSystemPrompt: (prompt: string) => void
+  setFileContents: (data: FileContent[]) => void
+  setAgentResponse: (response: AgentResponse) => void
+  setImages: (images: ImageFile[]) => void
+  setIncludeDependencies: (val: boolean) => void
+  resetSystemPrompt: () => void
+  resetChatResult: () => void
+  resetAll: () => void
 }
 
 const initialState: ChatState = {
@@ -47,7 +50,8 @@ const initialState: ChatState = {
   agentResponse: { response: "" },
   includeDependencies: true,
   imageUrls: "",
-};
+  images: [],
+}
 
 export const useChatStore = create<ChatState & ChatActions>()(
   persist(
@@ -62,6 +66,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
       setFileContents: (data) => set({ fileContents: data }),
       setAgentResponse: (response) => set({ agentResponse: response }),
       setIncludeDependencies: (val) => set({ includeDependencies: val }),
+      setImages: (images) => set({ images }),
 
       resetSystemPrompt: () => set({ systemPrompt: DEFAULT_SYSTEM_PROMPT }),
       resetChatResult: () =>
@@ -81,7 +86,8 @@ export const useChatStore = create<ChatState & ChatActions>()(
         systemPrompt: state.systemPrompt,
         agentResponse: state.agentResponse,
         includeDependencies: state.includeDependencies,
+        images: state.images,
       }),
-    },
-  ),
-);
+    }
+  )
+)

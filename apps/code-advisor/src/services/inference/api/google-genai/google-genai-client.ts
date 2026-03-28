@@ -1,188 +1,60 @@
-import "server-only";
+import "server-only"
 
-import { config } from "@/lib/config";
-import { type GenerateContentResponse, GoogleGenAI } from "@google/genai";
-import { z } from "zod";
-import { type InferenceRequestOptions } from "../../types/inference-request-options";
-import { InferenceResponse } from "../../types/inference-response";
-import { defaultConfig } from "./google-genai-constants";
-import { mapMessagesToGenAI } from "./google-genai-mapper";
+import { config } from "@/lib/config"
+import {
+  type GoogleLanguageModelOptions,
+  createGoogleGenerativeAI,
+} from "@ai-sdk/google"
+import { streamText, StreamTextResult, ToolSet } from "ai"
+import { InferenceRequestOptions } from "../../types/inference-request-options"
 
-export class GoogleGenAiClient {
-  protected _client = new GoogleGenAI({ apiKey: config.GENAI_API_KEY });
+export class GoogleGenAIClient {
+  ai = createGoogleGenerativeAI({ apiKey: config.GENAI_API_KEY })
 
-  public generateResponse = async (
-    params: InferenceRequestOptions,
-  ): Promise<InferenceResponse> => {
-    const model = params.model;
-    const client = this._client;
-    const contents = mapMessagesToGenAI({
+  public generateContent = (
+    params: InferenceRequestOptions
+  ): StreamTextResult<ToolSet, never> => {
+    const result = streamText({
+      model: this.ai(params.model),
+      system: params.system,
       messages: params.messages,
-      contextInfo: params.contextInfo,
-    });
-    const genAiResponse = await client.models.generateContent({
-      model,
-      contents,
-      config: {
-        ...defaultConfig,
-        ...params.config,
-        systemInstruction: params.systemPrompt,
-        responseMimeType: params.responseJsonSchema
-          ? "application/json"
-          : "text/plain",
-        responseJsonSchema: params.responseJsonSchema
-          ? z.toJSONSchema(params.responseJsonSchema)
-          : undefined,
+      temperature: params.config?.temperature,
+      topP: params.config?.topP,
+      topK: params.config?.topK,
+      maxOutputTokens: params.config?.maxOutputTokens,
+      providerOptions: {
+        vertex: {
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_CIVIC_INTEGRITY",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_UNSPECIFIED",
+              threshold: "BLOCK_NONE",
+            },
+          ],
+          thinkingConfig: { includeThoughts: true, thinkingBudget: -1 },
+        } satisfies GoogleLanguageModelOptions,
       },
-    });
-    if (!genAiResponse.text) {
-      throw new Error(JSON.stringify(genAiResponse));
-    }
-    const inference = {
-      reasoning: genAiResponse.candidates?.[0].content?.parts?.[0].thought
-        ? genAiResponse.candidates?.[0].content?.parts?.[0].text
-        : undefined,
-      response: genAiResponse.text,
-    };
-    if (params.debug) {
-      console.log("reasoning", inference.reasoning);
-      console.log("response", inference.response);
-    }
-    return inference;
-  };
+    })
 
-  private async getStreamResult(
-    modelResponse: AsyncGenerator<GenerateContentResponse, unknown, unknown>,
-    debug: boolean,
-  ) {
-    let response = "";
-    let reasoning = "";
-    for await (const chunk of modelResponse) {
-      const chunkText = chunk.text;
-      if (!chunkText && chunk.candidates?.[0].content?.parts?.[0].thought) {
-        reasoning += chunk.candidates?.[0].content?.parts?.[0].text;
-        if (debug)
-          process.stdout.write(
-            chunk.candidates?.[0].content?.parts?.[0].text ||
-              "Razonamiento no encontrado",
-          );
-        continue;
-      }
-      if (debug) process.stdout.write(chunkText || "");
-      response += chunkText || "";
-    }
-    process.stdout.write("\nFIN DE LA RESPUESTA\n\n");
-    return { response, reasoning };
+    return result
   }
-
-  public generateResponseStream = async (
-    params: InferenceRequestOptions,
-  ): Promise<InferenceResponse> => {
-    const model = params.model;
-    const client = this._client;
-    const contents = mapMessagesToGenAI({
-      messages: params.messages,
-      contextInfo: params.contextInfo,
-    });
-    const responseStream = await client.models.generateContentStream({
-      model,
-      contents,
-      config: {
-        ...defaultConfig,
-        ...params.config,
-        systemInstruction: params.systemPrompt,
-        responseMimeType: params.responseJsonSchema
-          ? "application/json"
-          : "text/plain",
-        responseJsonSchema: params.responseJsonSchema
-          ? z.toJSONSchema(params.responseJsonSchema)
-          : undefined,
-      },
-    });
-    const result = await this.getStreamResult(
-      responseStream,
-      params.debug || false,
-    );
-    if (!result) throw new Error("Error al producir una respuesta");
-    return { ...result, response: result.response };
-  };
-
-  public generateStreamingResponse = async (
-    params: InferenceRequestOptions,
-  ): Promise<ReadableStream<Uint8Array>> => {
-    const contents = mapMessagesToGenAI({
-      messages: params.messages,
-      contextInfo: params.contextInfo,
-    });
-
-    const responseStream = await this._client.models.generateContentStream({
-      model: params.model,
-      contents,
-      config: {
-        ...defaultConfig,
-        ...params.config,
-        systemInstruction: params.systemPrompt,
-        responseMimeType: params.responseJsonSchema
-          ? "application/json"
-          : "text/plain",
-        responseJsonSchema: params.responseJsonSchema
-          ? z.toJSONSchema(params.responseJsonSchema)
-          : undefined,
-        abortSignal: params.signal,
-      },
-    });
-
-    const encoder = new TextEncoder();
-
-    return new ReadableStream<Uint8Array>({
-      async start(controller) {
-        const sendEvent = (
-          prefix: "data" | "reasoning" | "error",
-          content: string,
-        ) => {
-          try {
-            const payload =
-              prefix === "error" ? content : JSON.stringify(content);
-            controller.enqueue(encoder.encode(`${prefix}: ${payload}\n`));
-          } catch (e) {
-            console.error("Error en enqueueing:", e);
-          }
-        };
-
-        try {
-          for await (const chunk of responseStream) {
-            const parts = chunk.candidates?.[0]?.content?.parts || [];
-            const thought = parts[0]?.thought;
-
-            if (thought && parts[0]?.text) {
-              sendEvent("reasoning", parts[0].text);
-              process.stdout.write(parts[0].text);
-            }
-
-            if (chunk.text) {
-              sendEvent("data", chunk.text);
-              process.stdout.write(chunk.text);
-            }
-          }
-
-          controller.enqueue(encoder.encode("data: [DONE]"));
-          controller.close();
-        } catch (err) {
-          if (err instanceof Error) {
-            if (err.name === "AbortError") {
-              console.log("Generación abortada por el usuario.");
-              return;
-            }
-            sendEvent("error", err.message);
-            controller.error(err);
-            return;
-          }
-
-          const errorMessage = "Error desconocido en el stream";
-          sendEvent("error", errorMessage);
-          controller.error(err);
-        }
-      },
-    });
-  };
 }

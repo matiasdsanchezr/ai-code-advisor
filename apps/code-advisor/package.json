@@ -12,7 +12,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@workspace/ui": "workspace:*",
+    "@ai-sdk/google": "^3.0.53",
+    "@ai-sdk/google-vertex": "^4.0.95",
+    "@ai-sdk/openai": "^3.0.48",
+    "@ai-sdk/openai-compatible": "^2.0.37",
     "@ai-sdk/react": "^3.0.142",
     "@base-ui/react": "^1.2.0",
     "@google/genai": "^1.44.0",
@@ -22,6 +25,7 @@
     "@streamdown/code": "^1.1.0",
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
+    "@workspace/ui": "workspace:*",
     "ai": "^6.0.140",
     "ai-sdk-provider-gemini-cli": "workspace:*",
     "class-variance-authority": "^0.7.1",
@@ -42,14 +46,14 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@workspace/eslint-config": "workspace:^",
-    "@workspace/typescript-config": "workspace:*",
     "@iconify/json": "^2.2.447",
     "@iconify/tailwind4": "^1.2.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",

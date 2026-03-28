@@ -1,4 +1,4 @@
-import z from "zod";
+import z from "zod"
 
 export const NvidiaNimModelEnum = z.enum([
   "qwen/qwen3.5-122b-a10b",
@@ -8,4 +8,4 @@ export const NvidiaNimModelEnum = z.enum([
   "moonshotai/kimi-k2.5",
   "deepseek-ai/deepseek-v3.2",
   "qwen/qwen3.5-397b-a17b",
-]);
+])

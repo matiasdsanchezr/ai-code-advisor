@@ -1,38 +1,27 @@
-import { defaultConfig } from "@/services/inference/api/google-genai/google-genai-constants";
-import { streamText, UIMessage, convertToModelMessages } from "ai";
-import { createGeminiProvider } from "ai-sdk-provider-gemini-cli";
-import { z } from "zod";
+import { generateContent } from "@/services/inference/inference-service"
+import { InferenceProvider } from "@/services/inference/schemas/provider-schema"
+import { UIMessage, convertToModelMessages } from "ai"
 
 export async function POST(req: Request) {
   const {
+    provider,
     messages,
     model,
     system,
-    responseJsonSchema,
   }: {
-    messages: UIMessage[];
-    model: string;
-    system: string;
-    responseJsonSchema: z.ZodTypeAny;
-  } = await req.json();
+    provider: InferenceProvider
+    messages: UIMessage[]
+    model: string
+    system: string
+  } = await req.json()
 
-  console.log(model, system);
-
-  const gemini = createGeminiProvider({
-    authType: "oauth-personal",
-  });
-
-  const result = streamText({
-    model: gemini(model, {
-      ...defaultConfig,
-      responseMimeType: responseJsonSchema ? "application/json" : "text/plain",
-      responseJsonSchema: responseJsonSchema
-        ? z.toJSONSchema(responseJsonSchema)
-        : undefined,
-    }),
-    system: system,
+  const result = generateContent({
     messages: await convertToModelMessages(messages),
-  });
+    model,
+    system,
+    provider,
+    config: {},
+  })
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({ sendReasoning: true })
 }

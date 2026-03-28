@@ -1,18 +1,20 @@
-import { GenerateContentConfig } from "@google/genai";
-import { ZodObject } from "zod";
-import { Message } from "../schemas/message.schema";
-import { InferenceProvider } from "../schemas/provider-schema";
+import { ZodObject } from "zod"
+import { InferenceProvider } from "../schemas/provider-schema"
+import { ModelMessage } from "ai"
 
 export type InferenceRequestOptions = {
-  provider: InferenceProvider;
-  systemPrompt: string;
-  messages: Message[];
-  model: string;
-  contextInfo?: string;
-  debug?: boolean;
-  responseJsonSchema?: ZodObject;
-  signal?: AbortSignal;
-  config:
-    | { temperature?: number; topP?: number; topK?: number }
-    | GenerateContentConfig;
-};
+  provider: InferenceProvider
+  system?: string
+  messages: ModelMessage[]
+  model: string
+  contextInfo?: string
+  debug?: boolean
+  responseJsonSchema?: ZodObject
+  signal?: AbortSignal
+  config?: {
+    temperature?: number
+    topP?: number
+    topK?: number
+    maxOutputTokens?: number
+  }
+}

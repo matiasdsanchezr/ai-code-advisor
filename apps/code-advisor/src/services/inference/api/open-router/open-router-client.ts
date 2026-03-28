@@ -1,12 +1,47 @@
-import "server-only";
+import "server-only"
 
-import { config } from "@/lib/config";
-import { OpenAiClient } from "../open-ai/open-ai-client";
+import { streamText, StreamTextResult, ToolSet } from "ai"
+import { InferenceRequestOptions } from "../../types/inference-request-options"
+import { config } from "@/lib/config"
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 
-export class OpenRouterClient extends OpenAiClient {
-  constructor() {
-    if (!config.OPEN_ROUTER_API_KEY)
-      throw new Error("OPEN_ROUTER_API_KEY no fue configurada");
-    super("https://openrouter.ai/api/v1", config.OPEN_ROUTER_API_KEY);
+export class OpenRouterClient {
+  private _nim = createOpenAICompatible({
+    name: "openRouter",
+    baseURL: "https://openrouter.ai/api/v1",
+    headers: {
+      Authorization: `Bearer ${config.OPEN_ROUTER_API_KEY}`,
+    },
+    includeUsage: true,
+    queryParams: {
+      thinking: "enabled",
+    },
+    transformRequestBody: (body) => {
+      return {
+        ...body,
+        thinking: true,
+        chat_template_kwargs: { thinking: true },
+      }
+    },
+  })
+
+  public generateContent = (
+    params: InferenceRequestOptions
+  ): StreamTextResult<ToolSet, never> => {
+    const result = streamText({
+      model: this._nim.chatModel(params.model),
+      temperature: params.config?.temperature,
+      topP: params.config?.topP,
+      topK: params.config?.topK,
+      system: params.system,
+      messages: params.messages,
+      providerOptions: {
+        nim: {
+          thinking: true,
+        },
+      },
+    })
+
+    return result
   }
 }

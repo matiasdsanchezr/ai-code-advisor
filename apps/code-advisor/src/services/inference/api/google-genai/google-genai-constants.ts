@@ -2,7 +2,7 @@ import {
   type GenerateContentConfig,
   HarmBlockThreshold,
   HarmCategory,
-} from "@google/genai";
+} from "@google/genai"
 
 export const defaultConfig: GenerateContentConfig = {
   safetySettings: [
@@ -29,6 +29,6 @@ export const defaultConfig: GenerateContentConfig = {
   ],
   temperature: 1,
   topP: 0.95,
-  responseModalities: ["text"],
   thinkingConfig: { includeThoughts: true, thinkingBudget: -1 },
-};
+  maxOutputTokens: 60000,
+}
