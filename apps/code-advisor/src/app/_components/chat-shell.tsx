@@ -1,0 +1,522 @@
+"use client";
+
+import { getFileContents } from "@/actions/get-file-contents";
+import { FileTreeNode } from "@/actions/get-file-tree";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { useChatStore } from "@/stores/chat-store";
+import { createCodePlugin } from "@streamdown/code";
+import { useActionState, useMemo, useState } from "react";
+import { Streamdown } from "streamdown";
+import { useShallow } from "zustand/shallow";
+import {
+  attachSystemInstruction,
+  buildUserPrompt,
+} from "../../utils/build-prompt";
+import { FileExplorer } from "./file-explorer";
+import { GeneratedPrompt } from "./generated-prompt";
+import { SystemPromptMenu } from "./system-prompt-menu";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+
+export const ChatShellContent = ({
+  totalFiles,
+  initialPrompts,
+  treeNodes,
+}: {
+  totalFiles: number;
+  initialPrompts: string[];
+  treeNodes: FileTreeNode[];
+}) => {
+  "use client";
+
+  const store = useChatStore(
+    useShallow((s) => ({
+      config: s.config,
+      selectedFiles: s.selectedFiles,
+      userQuery: s.userQuery,
+      imageUrls: s.imageUrls,
+      systemPrompt: s.systemPrompt,
+      fileContents: s.fileContents,
+      agentResponse: s.agentResponse,
+      includeDependencies: s.includeDependencies,
+      setUserQuery: s.setUserQuery,
+      setImageUrls: s.setImageUrls,
+      setFileContents: s.setFileContents,
+      setAgentResponse: s.setAgentResponse,
+      setIncludeDependencies: s.setIncludeDependencies,
+      resetChatResult: s.resetChatResult,
+      resetAll: s.resetAll,
+    })),
+  );
+
+  const [showFileExplorer, setShowFileExplorer] = useState(true);
+  const [isPromptGenerated, setIsPromptGenerated] = useState(false);
+
+  const [, handleFetchFileContents, isFetchingFiles] = useActionState(
+    async (prevState: unknown, formData: FormData) => {
+      const { data: fileContents, error } = await getFileContents({}, formData);
+      if (fileContents) {
+        store.setFileContents(fileContents);
+        setIsPromptGenerated(true);
+        return { error: null };
+      }
+      return {
+        error: error ?? "Se produjo un error al analizar los archivos",
+      };
+    },
+    null,
+  );
+
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    status,
+    error,
+    clearError,
+    stop,
+  } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      body: {
+        system: store.systemPrompt,
+        provider: store.config.provider,
+        model: store.config.model,
+      },
+    }),
+  });
+
+  const fileErrors = useMemo(
+    () =>
+      store.fileContents
+        .filter((file) => file.error)
+        .map((file) => `${file.path}: ${file.error}`),
+    [store.fileContents],
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      e.key === "Enter" &&
+      !isDisabled &&
+      store.selectedFiles.length > 0 &&
+      store.userQuery.trim()
+    ) {
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
+    }
+  };
+
+  const validFiles = useMemo(
+    () => store.fileContents.filter((f) => !f.error && f.content),
+    [store.fileContents],
+  );
+  const isReadyToReview = isPromptGenerated && !!store.userQuery;
+  const isStreaming = status === "streaming";
+  const isDisabled = isFetchingFiles || isStreaming || isReadyToReview;
+
+  const userPrompt = useMemo(
+    () => buildUserPrompt(store.userQuery, validFiles),
+    [store.userQuery, validFiles],
+  );
+
+  const finalPrompt = useMemo(
+    () => attachSystemInstruction(store.systemPrompt, userPrompt),
+    [store.systemPrompt, userPrompt],
+  );
+
+  return (
+    <div className="flex flex-col gap-6 p-3">
+      {/* --- SECCIÓN 1: Configuración de la Consulta --- */}
+      <Card
+        className={cn(
+          "border-border/60 shadow-sm transition-colors",
+          isReadyToReview && "bg-muted/40",
+        )}
+      >
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                <span>Paso 1</span>
+              </div>
+              <CardTitle className="text-lg md:text-xl">
+                Define tu consulta
+              </CardTitle>
+              <CardDescription className="text-sm md:text-base">
+                Selecciona los archivos y describe la tarea que deseas realizar.
+              </CardDescription>
+            </div>
+            <SystemPromptMenu
+              disabled={isDisabled}
+              availablePrompts={initialPrompts}
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => setShowFileExplorer(!showFileExplorer)}
+              variant="outline"
+              size="sm"
+              disabled={isDisabled}
+              className="inline-flex items-center gap-2"
+            >
+              <span
+                className={cn(
+                  "icon-[fa7-solid--folder-open] transition-transform",
+                  showFileExplorer && "rotate-12",
+                )}
+              />
+              <span className="hidden sm:inline">
+                {showFileExplorer
+                  ? "Ocultar explorador de archivos"
+                  : "Mostrar explorador de archivos"}
+              </span>
+              <span className="sm:hidden">
+                {showFileExplorer ? "Ocultar archivos" : "Ver archivos"}
+              </span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                {store.selectedFiles.length}
+              </span>
+            </Button>
+
+            {store.selectedFiles.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {store.selectedFiles.length} archivo(s) seleccionado(s)
+              </span>
+            )}
+          </div>
+
+          {showFileExplorer && (
+            <FileExplorer
+              treeNodes={treeNodes}
+              totalFiles={totalFiles}
+              disabled={isDisabled}
+            />
+          )}
+
+          {fileErrors.length > 0 && (
+            <Alert
+              variant="destructive"
+              className="border-destructive/40 bg-destructive/5"
+            >
+              <AlertDescription className="space-y-1 text-sm">
+                <p className="font-medium">
+                  No se pudieron leer {fileErrors.length} archivo(s).
+                </p>
+                <p>
+                  Revisa la selección o intenta de nuevo. Si el problema
+                  persiste, verifica permisos de lectura o formato.
+                </p>
+                <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                  {fileErrors.slice(0, 3).map((err) => (
+                    <li key={err}>{err}</li>
+                  ))}
+                  {fileErrors.length > 3 && (
+                    <li>Y {fileErrors.length - 3} archivo(s) más…</li>
+                  )}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <form
+            action={handleFetchFileContents}
+            className="flex flex-col gap-4"
+          >
+            <div className="flex items-center gap-2 py-1">
+              <Checkbox
+                id="include-deps"
+                checked={store.includeDependencies}
+                onCheckedChange={(val) => store.setIncludeDependencies(!!val)}
+                disabled={isDisabled}
+              />
+              <Label htmlFor="include-deps" className="cursor-pointer">
+                Incluir dependencias de los archivos seleccionados
+              </Label>
+              {/* Input oculto para que viaje en el FormData */}
+              <input
+                type="hidden"
+                name="includeDependencies"
+                value={String(store.includeDependencies)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label
+                  htmlFor="imageUrls"
+                  className="text-sm font-medium flex items-center gap-2"
+                >
+                  <span className="icon-[fa7-solid--images] text-muted-foreground" />
+                  Imágenes de referencia (URLs)
+                </Label>
+              </div>
+              <Textarea
+                id="imageUrls"
+                name="imageUrls"
+                value={store.imageUrls}
+                onChange={(e) => store.setImageUrls(e.target.value)}
+                placeholder={`https://ejemplo.com/captura1.png\nhttps://ejemplo.com/captura2.png`}
+                className="min-h-20 text-xs font-mono"
+                disabled={isDisabled}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Pega una URL por línea. Estas imágenes se enviarán como contexto
+                visual al modelo.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Textarea
+                id="user-query"
+                name="userQuery"
+                value={store.userQuery}
+                onChange={(e) => store.setUserQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ej: Explícame qué hace esta función y propón mejoras de rendimiento."
+                className="min-h-32 text-sm md:text-base"
+                disabled={isDisabled}
+              />
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>
+                  Selecciona al menos un archivo para generar el prompt.
+                </span>
+                <span>{store.userQuery.trim().length} caracteres</span>
+              </div>
+            </div>
+            {store.selectedFiles.map((path) => (
+              <input key={path} type="hidden" name="filePath" value={path} />
+            ))}
+            <input
+              type="hidden"
+              name="systemPrompt"
+              value={store.systemPrompt}
+            />
+            {!isReadyToReview && (
+              <Button
+                type="submit"
+                disabled={!store.userQuery.trim() || isFetchingFiles}
+                className="inline-flex max-w-60 items-center gap-2"
+              >
+                {isFetchingFiles ? (
+                  <>
+                    <span className="icon-[fa7-solid--spinner] animate-spin" />
+                    Analizando archivos...
+                  </>
+                ) : (
+                  <>
+                    <span className="icon-[fa7-solid--paper-plane]" />
+                    Generar y revisar prompt
+                  </>
+                )}
+              </Button>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* --- SECCIÓN 2: Prompt Generado y Acciones --- */}
+      {isReadyToReview && (
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                <span>Paso 2</span>
+              </div>
+              <CardTitle className="text-lg md:text-xl">
+                Revisa y utiliza el prompt
+              </CardTitle>
+              <CardDescription className="text-sm md:text-base">
+                Copia el prompt para usarlo en otro LLM o procesa la tarea aquí.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {/* Sección de prompt generado */}
+            {isReadyToReview && (
+              <GeneratedPrompt
+                fileContents={validFiles}
+                generatedPrompt={finalPrompt}
+              />
+            )}
+
+            <Separator />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  disabled={isStreaming}
+                  className="inline-flex items-center gap-2"
+                  onClick={() => {
+                    // const payload: ChatCompletionPayload = {
+                    //   input: userPrompt,
+                    //   instruction: store.systemPrompt,
+                    //   imageUrls: store.imageUrls,
+                    //   provider: store.config.provider,
+                    //   model: store.config.model,
+                    // };
+                    clearError();
+                    setMessages([]);
+                    sendMessage({
+                      role: "user",
+                      parts: [{ type: "text", text: userPrompt }],
+                    });
+                  }}
+                >
+                  {isStreaming ? (
+                    <>
+                      <span className="icon-[fa7-solid--spinner] animate-spin" />
+                      Procesando con IA...
+                    </>
+                  ) : (
+                    <>
+                      <span className="icon-[fa7-solid--brain]" />
+                      Analizar con IA
+                    </>
+                  )}
+                </Button>
+
+                {/* Botón de cancelación — aparece solo durante el streaming */}
+                {isStreaming && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={stop}
+                    className="inline-flex items-center gap-1.5 text-muted-foreground"
+                  >
+                    <span className="icon-[fa7-solid--stop]" />
+                    Detener
+                  </Button>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  store.resetChatResult();
+                  setIsPromptGenerated(false);
+                }}
+                disabled={isStreaming}
+                className="inline-flex items-center gap-2"
+              >
+                <span className="icon-[fa7-solid--pencil]" />
+                Modificar consulta
+              </Button>
+
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  store.resetAll();
+                  setIsPromptGenerated(false);
+                }}
+                disabled={isStreaming}
+                className="inline-flex items-center gap-2 text-destructive hover:text-destructive"
+              >
+                <span className="icon-[fa7-solid--arrow-rotate-left]" />
+                Empezar de cero
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* --- SECCIÓN 3: Respuesta de la IA --- */}
+      {(messages.length > 1 || error) && (
+        <Card className="overflow-hidden border-border/60 shadow-md transition-all">
+          <CardHeader className="border-b bg-muted/30 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <span className="icon-[fluent--brain-sparkle-20-regular]"></span>
+                </div>
+                <div>
+                  <CardTitle className="text-base font-semibold">
+                    Respuesta generada
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Respuesta basada en el contexto proporcionado
+                  </CardDescription>
+                </div>
+              </div>
+              {messages.length > 1 && (
+                <Badge variant="outline" className="h-6 gap-1 bg-background/50">
+                  <span className="icon-[fa7-solid--check-double] text-[10px] text-green-600" />
+                  Generado
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="min-h-[200px] transition-all duration-500 ease-in-out">
+              {messages.length > 1 ? (
+                <div className="prose prose-sm max-w-none p-6 dark:prose-invert overflow-anchor-none">
+                  <Reasoning className="w-full" isStreaming={isStreaming}>
+                    <ReasoningTrigger />
+                    <ReasoningContent>
+                      {messages[messages.length - 1].parts
+                        .map((part) =>
+                          part.type === "reasoning" ? part.text : "",
+                        )
+                        .join(" ")}
+                    </ReasoningContent>
+                  </Reasoning>
+                  <Streamdown
+                    plugins={{
+                      code: createCodePlugin({
+                        themes: ["github-light", "github-dark"],
+                      }),
+                    }}
+                  >
+                    {messages[messages.length - 1].parts
+                      .map((part) => (part.type === "text" ? part.text : ""))
+                      .join(" ")}
+                  </Streamdown>
+                </div>
+              ) : isStreaming ? (
+                <div className="p-6 space-y-4">
+                  <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                  <div className="h-4 bg-muted animate-pulse rounded w-full" />
+                  <div className="h-4 bg-muted animate-pulse rounded w-5/6" />
+                </div>
+              ) : (
+                <div className="p-6">
+                  <Alert
+                    variant="destructive"
+                    className="border-destructive/20 bg-destructive/5 flex items-center"
+                  >
+                    <span className="icon-[fa7-solid--circle-exclamation] text-destructive" />
+                    <AlertDescription className="ml-2 font-medium">
+                      {error?.message ?? ""}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
