@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
   Command,
@@ -7,22 +7,22 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
+} from "@/components/ui/command"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
-import React from "react";
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { Check, ChevronsUpDown } from "lucide-react"
+import React from "react"
 
 interface NavSelectorProps {
-  label: string;
-  value: string;
-  options: { label: string; value: string }[];
-  onChange: (value: string) => void;
-  icon?: string;
+  label: string
+  value: string
+  options: { label: string; value: string }[]
+  onChange: (value: string) => void
+  icon?: string
 }
 
 export function NavSelector({
@@ -32,7 +32,7 @@ export function NavSelector({
   onChange,
   icon,
 }: NavSelectorProps) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(false)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -51,7 +51,7 @@ export function NavSelector({
           </button>
         }
       ></PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="end">
+      <PopoverContent className="p-0" align="end">
         <Command>
           <CommandInput placeholder={`Buscar ${label.toLowerCase()}...`} />
           <CommandList>
@@ -62,8 +62,8 @@ export function NavSelector({
                   key={option.value}
                   value={option.value}
                   onSelect={(currentValue) => {
-                    onChange(currentValue);
-                    setOpen(false);
+                    onChange(currentValue)
+                    setOpen(false)
                   }}
                 >
                   <Check
@@ -80,5 +80,5 @@ export function NavSelector({
         </Command>
       </PopoverContent>
     </Popover>
-  );
+  )
 }

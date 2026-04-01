@@ -13,14 +13,17 @@ export class NvidiaNimClient {
       Authorization: `Bearer ${config.NVIDIA_NIM_API_KEY}`,
     },
     includeUsage: true,
-    queryParams: {
-      thinking: "enabled",
-    },
     transformRequestBody: (body) => {
       return {
         ...body,
         thinking: true,
-        chat_template_kwargs: { thinking: true },
+        enable_thinking: true,
+        clear_thinking: false,
+        chat_template_kwargs: {
+          thinking: true,
+          enable_thinking: true,
+          clear_thinking: false,
+        },
       }
     },
   })
@@ -38,6 +41,8 @@ export class NvidiaNimClient {
       providerOptions: {
         nim: {
           thinking: true,
+          clear_thinking: false,
+          chat_template_kwargs: { thinking: true, clear_thinking: false },
         },
       },
     })

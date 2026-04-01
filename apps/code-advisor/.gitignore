@@ -1,0 +1,3 @@
+storage/outputs/*
+storage/temp/*
+storage/**/*-temp.md
