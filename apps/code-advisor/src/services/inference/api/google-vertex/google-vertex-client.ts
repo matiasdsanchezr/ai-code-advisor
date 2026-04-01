@@ -3,10 +3,11 @@ import "server-only"
 import { config } from "@/lib/config"
 import { GoogleGenAI } from "@google/genai"
 
-import { createVertex } from "@ai-sdk/google-vertex"
 import { type GoogleLanguageModelOptions } from "@ai-sdk/google"
-import { InferenceRequestOptions } from "../../types/inference-request-options"
-import { streamText, StreamTextResult, ToolSet } from "ai"
+import { createVertex } from "@ai-sdk/google-vertex"
+import { Output, streamText, StreamTextResult, ToolSet } from "ai"
+import { type InferenceRequestOptions } from "../../types/inference-request-options"
+import { genaiDefaultOptions } from "../google-genai/google-genai-client"
 
 export class GoogleVertexClient {
   vertex = createVertex({ apiKey: config.VERTEX_API_KEY })
@@ -28,34 +29,12 @@ export class GoogleVertexClient {
       topP: params.config?.topP,
       topK: params.config?.topK,
       maxOutputTokens: params.config?.maxOutputTokens,
+      output: params.responseJsonSchema
+        ? Output.object(params.responseJsonSchema)
+        : undefined,
       providerOptions: {
         vertex: {
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_CIVIC_INTEGRITY",
-              threshold: "BLOCK_NONE",
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_NONE",
-            },
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_NONE",
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_NONE",
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_NONE",
-            },
-            {
-              category: "HARM_CATEGORY_UNSPECIFIED",
-              threshold: "BLOCK_NONE",
-            },
-          ],
+          ...genaiDefaultOptions,
           thinkingConfig: { includeThoughts: true, thinkingBudget: -1 },
         } satisfies GoogleLanguageModelOptions,
       },

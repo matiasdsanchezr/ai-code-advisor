@@ -2,7 +2,7 @@ import "server-only"
 
 import { InferenceRequestOptions } from "../../types/inference-request-options"
 import { createOpenAI } from "@ai-sdk/openai"
-import { streamText, StreamTextResult, ToolSet } from "ai"
+import { Output, streamText, StreamTextResult, ToolSet } from "ai"
 
 export class OpenAiClient {
   protected _openAI
@@ -24,6 +24,9 @@ export class OpenAiClient {
       topK: params.config?.topK,
       system: params.system,
       messages: params.messages,
+      output: params.responseJsonSchema
+        ? Output.object(params.responseJsonSchema)
+        : undefined,
     })
 
     return result

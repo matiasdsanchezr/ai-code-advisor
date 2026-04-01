@@ -29,6 +29,7 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse({
     sendReasoning: true,
     onFinish: async ({ responseMessage }) => {
+      console.log(responseMessage.metadata)
       const outputPath = path.join(config.STORAGE_PATH, "outputs")
       await mkdir(outputPath, { recursive: true })
       await writeFile(

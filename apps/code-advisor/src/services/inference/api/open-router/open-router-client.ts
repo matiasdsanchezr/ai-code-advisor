@@ -1,9 +1,9 @@
 import "server-only"
 
-import { streamText, StreamTextResult, ToolSet } from "ai"
-import { InferenceRequestOptions } from "../../types/inference-request-options"
 import { config } from "@/lib/config"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
+import { Output, streamText, StreamTextResult, ToolSet } from "ai"
+import { InferenceRequestOptions } from "../../types/inference-request-options"
 
 export class OpenRouterClient {
   private _nim = createOpenAICompatible({
@@ -13,16 +13,6 @@ export class OpenRouterClient {
       Authorization: `Bearer ${config.OPEN_ROUTER_API_KEY}`,
     },
     includeUsage: true,
-    queryParams: {
-      thinking: "enabled",
-    },
-    transformRequestBody: (body) => {
-      return {
-        ...body,
-        thinking: true,
-        chat_template_kwargs: { thinking: true },
-      }
-    },
   })
 
   public generateContent = (
@@ -35,9 +25,19 @@ export class OpenRouterClient {
       topK: params.config?.topK,
       system: params.system,
       messages: params.messages,
+      output: params.responseJsonSchema
+        ? Output.object(params.responseJsonSchema)
+        : undefined,
       providerOptions: {
-        nim: {
+        openRouter: {
           thinking: true,
+          clear_thinking: false,
+          enable_thinking: true,
+          chat_template_kwargs: {
+            thinking: true,
+            enable_thinking: true,
+            clear_thinking: false,
+          },
         },
       },
     })

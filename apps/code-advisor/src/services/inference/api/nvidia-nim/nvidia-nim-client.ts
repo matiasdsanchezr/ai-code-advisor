@@ -1,6 +1,6 @@
 import "server-only"
 
-import { streamText, StreamTextResult, ToolSet } from "ai"
+import { Output, streamText, StreamTextResult, ToolSet } from "ai"
 import { InferenceRequestOptions } from "../../types/inference-request-options"
 import { config } from "@/lib/config"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
@@ -13,19 +13,6 @@ export class NvidiaNimClient {
       Authorization: `Bearer ${config.NVIDIA_NIM_API_KEY}`,
     },
     includeUsage: true,
-    transformRequestBody: (body) => {
-      return {
-        ...body,
-        thinking: true,
-        enable_thinking: true,
-        clear_thinking: false,
-        chat_template_kwargs: {
-          thinking: true,
-          enable_thinking: true,
-          clear_thinking: false,
-        },
-      }
-    },
   })
 
   public generateContent = (
@@ -38,11 +25,16 @@ export class NvidiaNimClient {
       topK: params.config?.topK,
       system: params.system,
       messages: params.messages,
+      output: params.responseJsonSchema
+        ? Output.object(params.responseJsonSchema)
+        : undefined,
       providerOptions: {
         nim: {
-          thinking: true,
-          clear_thinking: false,
-          chat_template_kwargs: { thinking: true, clear_thinking: false },
+          chat_template_kwargs: {
+            thinking: true,
+            enable_thinking: true,
+            clear_thinking: false,
+          },
         },
       },
     })
