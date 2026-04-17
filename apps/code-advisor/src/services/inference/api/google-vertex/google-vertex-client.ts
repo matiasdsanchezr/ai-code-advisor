@@ -1,27 +1,31 @@
 import "server-only"
 
 import { config } from "@/lib/config"
-import { GoogleGenAI } from "@google/genai"
-
 import { type GoogleLanguageModelOptions } from "@ai-sdk/google"
 import { createVertex } from "@ai-sdk/google-vertex"
-import { Output, streamText, StreamTextResult, ToolSet } from "ai"
+import {
+  type GenerateTextResult,
+  type StreamTextResult,
+  type ToolSet,
+  Output,
+  generateText as aiGenerateText,
+  streamText as aiStreamText,
+} from "ai"
+import { InferenceClient } from "../../types/inference-client"
 import { type InferenceRequestOptions } from "../../types/inference-request-options"
-import { genaiDefaultOptions } from "../google-genai/google-genai-client"
+import {
+  getThinkingConfig,
+  googleDefaultOptions,
+} from "../google-genai/google-genai-config"
 
-export class GoogleVertexClient {
-  vertex = createVertex({ apiKey: config.VERTEX_API_KEY })
+export class GoogleVertexClient implements InferenceClient {
+  private vertex = createVertex({ apiKey: config.VERTEX_API_KEY })
 
-  protected _client = new GoogleGenAI({
-    vertexai: true,
-    httpOptions: { apiVersion: "v1" },
-    apiKey: config.VERTEX_API_KEY,
-  })
-
-  public generateContent = (
+  public generateText = async (
     params: InferenceRequestOptions
-  ): StreamTextResult<ToolSet, never> => {
-    const result = streamText({
+  ): Promise<GenerateTextResult<ToolSet, never>> => {
+    const thinkingConfig = getThinkingConfig(params)
+    const result = aiGenerateText({
       model: this.vertex(params.model),
       system: params.system,
       messages: params.messages,
@@ -30,12 +34,39 @@ export class GoogleVertexClient {
       topK: params.config?.topK,
       maxOutputTokens: params.config?.maxOutputTokens,
       output: params.responseJsonSchema
-        ? Output.object(params.responseJsonSchema)
+        ? Output.object({ schema: params.responseJsonSchema })
+        : undefined,
+      maxRetries: params.maxRetries ?? 0,
+      providerOptions: {
+        vertex: {
+          ...googleDefaultOptions,
+          thinkingConfig,
+        } satisfies GoogleLanguageModelOptions,
+      },
+    })
+
+    return result
+  }
+
+  public streamText = (
+    params: InferenceRequestOptions
+  ): StreamTextResult<ToolSet, never> => {
+    const thinkingConfig = getThinkingConfig(params)
+    const result = aiStreamText({
+      model: this.vertex(params.model),
+      system: params.system,
+      messages: params.messages,
+      temperature: params.config?.temperature,
+      topP: params.config?.topP,
+      topK: params.config?.topK,
+      maxOutputTokens: params.config?.maxOutputTokens,
+      output: params.responseJsonSchema
+        ? Output.object({ schema: params.responseJsonSchema })
         : undefined,
       providerOptions: {
         vertex: {
-          ...genaiDefaultOptions,
-          thinkingConfig: { includeThoughts: true, thinkingBudget: -1 },
+          ...googleDefaultOptions,
+          thinkingConfig,
         } satisfies GoogleLanguageModelOptions,
       },
     })

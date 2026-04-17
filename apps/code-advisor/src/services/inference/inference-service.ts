@@ -3,9 +3,9 @@ import { GoogleGenAIClient } from "./api/google-genai/google-genai-client"
 import { GoogleVertexClient } from "./api/google-vertex/google-vertex-client"
 import { NvidiaNimClient } from "./api/nvidia-nim/nvidia-nim-client"
 import { OpenRouterClient } from "./api/open-router/open-router-client"
-import { InferenceProvider } from "./schemas/provider-schema"
-import { InferenceClient } from "./types/inference-client"
-import { InferenceRequestOptions } from "./types/inference-request-options"
+import { type InferenceProvider } from "./schemas/provider-schema"
+import { type InferenceClient } from "./types/inference-client"
+import { type InferenceRequestOptions } from "./types/inference-request-options"
 
 const clientCache = new Map<string, InferenceClient>()
 
@@ -21,8 +21,6 @@ function createClient(provider: InferenceProvider) {
       return new GoogleVertexClient()
     case "genai":
       return new GoogleGenAIClient()
-    default:
-      return new GeminiCliClient()
   }
 }
 
@@ -35,8 +33,14 @@ function getClient(provider: InferenceProvider): InferenceClient {
   return newClient
 }
 
-export function generateContent(requestOptions: InferenceRequestOptions) {
+export async function generateText(requestOptions: InferenceRequestOptions) {
   const client = getClient(requestOptions.provider)
-  const modelResponse = client.generateContent(requestOptions)
+  const modelResponse = await client.generateText(requestOptions)
+  return modelResponse
+}
+
+export function streamText(requestOptions: InferenceRequestOptions) {
+  const client = getClient(requestOptions.provider)
+  const modelResponse = client.streamText(requestOptions)
   return modelResponse
 }

@@ -1,5 +1,6 @@
+import { ModelMessage } from "ai"
+import { type ZodType } from "zod"
 import { InferenceProvider } from "../schemas/provider-schema"
-import { FlexibleSchema, ModelMessage } from "ai"
 
 export type InferenceRequestOptions = {
   provider: InferenceProvider
@@ -8,11 +9,7 @@ export type InferenceRequestOptions = {
   model: string
   contextInfo?: string
   debug?: boolean
-  responseJsonSchema?: {
-    schema: FlexibleSchema<unknown>
-    name?: string | undefined
-    description?: string | undefined
-  }
+  responseJsonSchema?: ZodType
   signal?: AbortSignal
   config?: {
     temperature?: number
@@ -20,5 +17,7 @@ export type InferenceRequestOptions = {
     topK?: number
     maxOutputTokens?: number
   }
-  thinking?: boolean
+  enableThinking?: boolean
+  includeThoughts?: boolean
+  maxRetries?: number
 }

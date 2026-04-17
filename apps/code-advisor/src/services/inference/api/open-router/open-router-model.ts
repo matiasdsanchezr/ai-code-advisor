@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod"
 
 export const OpenRouterModelEnum = z.enum([
   "deepseek/deepseek-chat-v3.1:free",
@@ -14,4 +14,5 @@ export const OpenRouterModelEnum = z.enum([
   "nvidia/nemotron-3-super-120b-a12b:free",
   "arcee-ai/trinity-large-preview:free",
   "openai/gpt-oss-120b:free",
-]);
+  "qwen/qwen3.6-plus:free",
+])

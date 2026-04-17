@@ -1,37 +1,41 @@
-import { buildFileTree } from "@/actions/get-file-tree";
-import { loadPrompts } from "@/actions/prompt";
-import { getFilePaths } from "@/services/file-service";
-import { Suspense } from "react";
-import { ChatShellContent } from "./_components/chat-shell";
+import { generateTreeStructure } from "@/actions/get-file-tree"
+import { Suspense } from "react"
+import { ChatShellContent } from "./_components/chat-shell"
+import { SettingsDrawer } from "./_components/settings-drawer"
 
 export const ChatShell = async () => {
-  const [filePaths, systemPrompts] = await Promise.all([
-    getFilePaths(),
-    loadPrompts(),
-  ]);
-
-  const treeNodes = await buildFileTree(filePaths);
+  const treeStructure = await generateTreeStructure()
 
   return (
     <ChatShellContent
-      totalFiles={filePaths.length}
-      treeNodes={treeNodes}
-      initialPrompts={systemPrompts}
+      totalFiles={treeStructure.totalFiles}
+      treeNodes={treeStructure.treeNodes}
     />
-  );
-};
+  )
+}
 
 export default function Home() {
   return (
-    <div className="min-h-dvh font-sans bg-background">
-      <header className="flex flex-col items-center gap-1 py-10 px-4 border-b bg-muted/20">
+    <div className="min-h-dvh bg-background font-sans">
+      <Suspense
+        fallback={
+          <div className="flex flex-col items-center justify-center gap-4 p-20 text-muted-foreground">
+            <span className="icon-[fa6-solid--spinner] animate-spin text-4xl" />
+            <p className="animate-pulse">Preparando entorno de análisis...</p>
+          </div>
+        }
+      >
+        <SettingsDrawer />
+      </Suspense>
+
+      <header className="flex flex-col items-center gap-1 border-b bg-muted/20 px-4 py-10">
         <div className="flex items-center gap-3">
-          <span className="icon-[fa6-solid--magnifying-glass-code] text-4xl md:text-6xl text-primary" />
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight bg-linear-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <span className="icon-[fa6-solid--magnifying-glass-code] text-4xl text-primary md:text-6xl" />
+          <h1 className="bg-linear-to-r from-primary to-primary/60 bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-5xl">
             Code Advisor
           </h1>
         </div>
-        <p className="text-sm md:text-lg text-muted-foreground max-w-2xl text-center">
+        <p className="max-w-2xl text-center text-sm text-muted-foreground md:text-lg">
           Analiza grafos de dependencias y optimiza tu código con IA
         </p>
       </header>
@@ -39,8 +43,8 @@ export default function Home() {
       <main className="container mx-auto max-w-550">
         <Suspense
           fallback={
-            <div className="flex flex-col items-center justify-center p-20 gap-4 text-muted-foreground">
-              <span className="icon-[fa6-solid--spinner] text-4xl animate-spin" />
+            <div className="flex flex-col items-center justify-center gap-4 p-20 text-muted-foreground">
+              <span className="icon-[fa6-solid--spinner] animate-spin text-4xl" />
               <p className="animate-pulse">Preparando entorno de análisis...</p>
             </div>
           }
@@ -49,5 +53,5 @@ export default function Home() {
         </Suspense>
       </main>
     </div>
-  );
+  )
 }

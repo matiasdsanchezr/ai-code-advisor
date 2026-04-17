@@ -1,7 +1,7 @@
 import { config } from "@/lib/config"
-import { generateContent } from "@/services/inference/inference-service"
-import { InferenceProvider } from "@/services/inference/schemas/provider-schema"
-import { UIMessage, convertToModelMessages } from "ai"
+import { streamText } from "@/services/inference/inference-service"
+import { type InferenceProvider } from "@/services/inference/schemas/provider-schema"
+import { type UIMessage, convertToModelMessages } from "ai"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 
@@ -18,12 +18,11 @@ export async function POST(req: Request) {
     system: string
   } = await req.json()
 
-  const result = generateContent({
+  const result = streamText({
     messages: await convertToModelMessages(messages),
     model,
     system,
     provider,
-    config: {},
   })
 
   return result.toUIMessageStreamResponse({

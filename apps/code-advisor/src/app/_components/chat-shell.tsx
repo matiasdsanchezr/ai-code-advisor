@@ -35,15 +35,12 @@ import {
 } from "../../utils/build-prompt"
 import { FileExplorer } from "./file-explorer"
 import { GeneratedPrompt } from "./generated-prompt"
-import { SystemPromptMenu } from "./system-prompt-menu"
 
 export const ChatShellContent = ({
   totalFiles,
-  initialPrompts,
   treeNodes,
 }: {
   totalFiles: number
-  initialPrompts: string[]
   treeNodes: FileTreeNode[]
 }) => {
   "use client"
@@ -180,10 +177,6 @@ export const ChatShellContent = ({
                 Selecciona los archivos y describe la tarea que deseas realizar.
               </CardDescription>
             </div>
-            <SystemPromptMenu
-              disabled={isDisabled}
-              availablePrompts={initialPrompts}
-            />
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

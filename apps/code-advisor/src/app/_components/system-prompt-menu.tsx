@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import { loadPrompt } from "@/actions/prompt";
-import { Button } from "@/components/ui/button";
+import { loadPrompt } from "@/actions/prompt"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -10,42 +10,41 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useChatStore } from "@/stores/chat-store";
-import { useState, useTransition } from "react";
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { useChatStore } from "@/stores/chat-store"
+import { useState, useTransition } from "react"
 
 interface Props {
-  disabled?: boolean;
-  availablePrompts: string[];
+  availablePrompts: string[]
 }
 
-export const SystemPromptMenu = ({ disabled, availablePrompts }: Props) => {
-  const { systemPrompt, setSystemPrompt, resetSystemPrompt } = useChatStore();
-  const [draft, setDraft] = useState(systemPrompt);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+export const SystemPromptMenu = ({ availablePrompts }: Props) => {
+  const { systemPrompt, setSystemPrompt, resetSystemPrompt } = useChatStore()
+  const [draft, setDraft] = useState(systemPrompt)
+  const [isOpen, setIsOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   const handleSelectTemplate = (promptId: string) => {
     startTransition(async () => {
-      const content = await loadPrompt(promptId);
-      setDraft(content);
-    });
-  };
+      const content = await loadPrompt(promptId)
+      setDraft(content)
+    })
+  }
 
   const handleSave = () => {
-    setSystemPrompt(draft);
-    setIsOpen(false);
-  };
+    setSystemPrompt(draft)
+    setIsOpen(false)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger
         render={
-          <Button variant="outline" size="sm" disabled={disabled || isPending}>
+          <Button variant="outline" size="sm" disabled={isPending}>
             <span className="icon-[fa7-solid--sliders] mr-2" />
-            Configurar Agente
+            Editar Instrucciones
           </Button>
         }
       />
@@ -80,7 +79,7 @@ export const SystemPromptMenu = ({ disabled, availablePrompts }: Props) => {
               id="prompt"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              className="font-mono text-xs h-[calc(100vh-20rem)]"
+              className="h-[calc(100vh-20rem)] font-mono text-xs"
             />
           </div>
         </div>
@@ -93,5 +92,5 @@ export const SystemPromptMenu = ({ disabled, availablePrompts }: Props) => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-};
+  )
+}

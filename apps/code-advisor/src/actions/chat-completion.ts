@@ -1,6 +1,6 @@
 "use server"
 
-import { generateContent as generateContentService } from "@/services/inference/inference-service"
+import { streamText as generateContentService } from "@/services/inference/inference-service"
 import { MessagePart } from "@/services/inference/schemas/message.schema"
 import { InferenceProvider } from "@/services/inference/schemas/provider-schema"
 import { ActionState } from "@/types/action-state"

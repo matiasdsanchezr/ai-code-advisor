@@ -57,6 +57,17 @@ export class FileService {
     if (modulePath.startsWith("./") || modulePath.startsWith("../")) {
       return path.resolve(path.dirname(baseFile), modulePath) as AbsolutePath
     }
+    if (modulePath.startsWith("@workspace/")) {
+      return path.resolve(
+        this.projectRoot,
+        "..",
+        "..",
+        "packages",
+        "ui",
+        "src",
+        modulePath.slice(2)
+      ) as AbsolutePath
+    }
     if (modulePath.startsWith("@/")) {
       return path.resolve(
         this.projectRoot,

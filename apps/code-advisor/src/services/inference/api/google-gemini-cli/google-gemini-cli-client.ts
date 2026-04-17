@@ -1,67 +1,62 @@
-import "server-only"
-
-import { z, ZodObject } from "zod"
-
-import { streamText, StreamTextResult, ToolSet } from "ai"
+import {
+  type GenerateTextResult,
+  Output,
+  type StreamTextResult,
+  type ToolSet,
+  generateText as aiGenerateText,
+  streamText as aiStreamText,
+} from "ai"
 import { createGeminiProvider } from "ai-sdk-provider-gemini-cli"
+import "server-only"
+import { InferenceClient } from "../../types/inference-client"
 import { InferenceRequestOptions } from "../../types/inference-request-options"
-import { HarmBlockThreshold, HarmCategory } from "@google/genai"
-import { GenerateContentConfig } from "@google/genai"
+import {
+  getThinkingConfig,
+  googleDefaultOptions,
+} from "../google-genai/google-genai-config"
 
-export type GeminiCliGenerationConfig = GenerateContentConfig & {
-  responseModalities?: string[]
-}
-
-const defaultConfig: GeminiCliGenerationConfig = {
-  safetySettings: [
-    {
-      category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-      threshold: HarmBlockThreshold.BLOCK_NONE,
-    },
-  ],
-  temperature: 1,
-  topP: 0.95,
-  thinkingConfig: { includeThoughts: true, thinkingBudget: -1 },
-  maxOutputTokens: 60000,
-}
-
-export class GeminiCliClient {
-  protected _gemini = createGeminiProvider({
+export class GeminiCliClient implements InferenceClient {
+  protected geminiProvider = createGeminiProvider({
     authType: "oauth-personal",
   })
 
-  public generateContent = (
+  public generateText = async (
     params: InferenceRequestOptions
-  ): StreamTextResult<ToolSet, never> => {
-    const result = streamText({
-      model: this._gemini(params.model, {
-        ...defaultConfig,
+  ): Promise<GenerateTextResult<ToolSet, never>> => {
+    const thinkingConfig = getThinkingConfig(params)
+    const result = aiGenerateText({
+      model: this.geminiProvider(params.model, {
+        ...googleDefaultOptions,
         ...params.config,
-        responseMimeType: params.responseJsonSchema
-          ? "application/json"
-          : "text/plain",
-        responseJsonSchema: params.responseJsonSchema
-          ? z.toJSONSchema(params.responseJsonSchema.schema as ZodObject)
-          : undefined,
-      } satisfies GeminiCliGenerationConfig),
+        thinkingConfig,
+      }),
       system: params.system,
       messages: params.messages,
+      maxRetries: params.maxRetries ?? 0,
+      output: params.responseJsonSchema
+        ? Output.object({ schema: params.responseJsonSchema })
+        : undefined,
+    })
+
+    return result
+  }
+
+  public streamText = (
+    params: InferenceRequestOptions
+  ): StreamTextResult<ToolSet, never> => {
+    const thinkingConfig = getThinkingConfig(params)
+    const result = aiStreamText({
+      model: this.geminiProvider(params.model, {
+        ...googleDefaultOptions,
+        ...params.config,
+        thinkingConfig,
+      }),
+      system: params.system,
+      messages: params.messages,
+      maxRetries: params.maxRetries ?? 0,
+      output: params.responseJsonSchema
+        ? Output.object({ schema: params.responseJsonSchema })
+        : undefined,
     })
 
     return result
