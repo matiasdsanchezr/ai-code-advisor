@@ -6,11 +6,9 @@ import {
   type GenerateTextResult,
   type StreamTextResult,
   type ToolSet,
-  Output,
   generateText as aiGenerateText,
   streamText as aiStreamText,
 } from "ai"
-import z from "zod"
 import { InferenceClient } from "../../types/inference-client"
 import { type InferenceRequestOptions } from "../../types/inference-request-options"
 import { jsonOutputInstruction } from "../../utils/json-output-instruction"
@@ -28,13 +26,9 @@ export class NvidiaNimClient implements InferenceClient {
   public generateText = async (
     params: InferenceRequestOptions
   ): Promise<GenerateTextResult<ToolSet, never>> => {
-    let system = params.system ?? ""
-    if (params.responseJsonSchema) {
-      const outputInstruction = jsonOutputInstruction(
-        JSON.stringify(z.toJSONSchema(params.responseJsonSchema))
-      )
-      system = system.concat(outputInstruction)
-    }
+    const system = params.responseJsonSchema
+      ? jsonOutputInstruction(params.responseJsonSchema)
+      : params.system
     const result = await aiGenerateText({
       model: this._nim.chatModel(params.model),
       temperature: params.config?.temperature,
@@ -63,20 +57,15 @@ export class NvidiaNimClient implements InferenceClient {
   public streamText = (
     params: InferenceRequestOptions
   ): StreamTextResult<ToolSet, never> => {
-    let system = params.system ?? ""
-    if (params.responseJsonSchema) {
-      const outputInstruction = jsonOutputInstruction(
-        JSON.stringify(z.toJSONSchema(params.responseJsonSchema))
-      )
-      system = system.concat(outputInstruction)
-    }
+    const system = params.responseJsonSchema
+      ? jsonOutputInstruction(params.responseJsonSchema)
+      : params.system
     const result = aiStreamText({
       model: this._nim.chatModel(params.model),
       temperature: params.config?.temperature,
       topP: params.config?.topP,
       topK: params.config?.topK,
       maxRetries: params.maxRetries ?? 0,
-      output: params.responseJsonSchema ? Output.json() : undefined,
       system,
       messages: params.messages,
       providerOptions: {

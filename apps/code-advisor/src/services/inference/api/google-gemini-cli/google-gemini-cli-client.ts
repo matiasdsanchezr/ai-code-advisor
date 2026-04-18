@@ -1,8 +1,8 @@
 import {
   type GenerateTextResult,
-  Output,
   type StreamTextResult,
   type ToolSet,
+  Output,
   generateText as aiGenerateText,
   streamText as aiStreamText,
 } from "ai"
@@ -24,7 +24,7 @@ export class GeminiCliClient implements InferenceClient {
     params: InferenceRequestOptions
   ): Promise<GenerateTextResult<ToolSet, never>> => {
     const thinkingConfig = getThinkingConfig(params)
-    const result = aiGenerateText({
+    const result = await aiGenerateText({
       model: this.geminiProvider(params.model, {
         ...googleDefaultOptions,
         ...params.config,
