@@ -56,6 +56,8 @@ export const ChatShellContent = ({
       agentResponse: s.agentResponse,
       includeDependencies: s.includeDependencies,
       images: s.images,
+      temperature: s.temperature,
+      topP: s.topP,
       setUserQuery: s.setUserQuery,
       setImageUrls: s.setImageUrls,
       setFileContents: s.setFileContents,
@@ -150,6 +152,8 @@ export const ChatShellContent = ({
           system: store.systemPrompt,
           provider: store.config.provider,
           model: store.config.model,
+          temperature: store.temperature,
+          topP: store.topP,
         },
       }
     )

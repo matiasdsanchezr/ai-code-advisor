@@ -21,6 +21,8 @@ interface ChatState {
   includeDependencies: boolean
   imageUrls: string
   images: ImageFile[]
+  temperature: number
+  topP: number
 }
 
 interface ChatActions {
@@ -36,6 +38,8 @@ interface ChatActions {
   resetSystemPrompt: () => void
   resetChatResult: () => void
   resetAll: () => void
+  setTemperature: (temperature: number) => void
+  setTopP: (topP: number) => void
 }
 
 const initialState: ChatState = {
@@ -43,6 +47,8 @@ const initialState: ChatState = {
     provider: DEFAULT_PROVIDER,
     model: DEFAULT_MODEL,
   },
+  temperature: 1,
+  topP: 0.9,
   selectedFiles: [],
   userQuery: "",
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -59,6 +65,8 @@ export const useChatStore = create<ChatState & ChatActions>()(
       ...initialState,
 
       setConfig: (config) => set({ config }),
+      setTemperature: (temperature) => set({ temperature }),
+      setTopP: (topP) => set({ topP }),
       setSelectedFiles: (files) => set({ selectedFiles: files }),
       setUserQuery: (query) => set({ userQuery: query }),
       setImageUrls: (urls) => set({ imageUrls: urls }),
@@ -81,6 +89,8 @@ export const useChatStore = create<ChatState & ChatActions>()(
       name: "chat-state",
       partialize: (state) => ({
         config: state.config,
+        temperature: state.temperature,
+        topP: state.topP,
         selectedFiles: state.selectedFiles,
         userQuery: state.userQuery,
         systemPrompt: state.systemPrompt,

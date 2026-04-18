@@ -44,7 +44,7 @@ export class OpenAiClient implements InferenceClient {
           chat_template_kwargs: {
             thinking: params.enableThinking ?? true,
             enable_thinking: params.enableThinking ?? true,
-            clear_thinking: !(params.includeThoughts ?? false),
+            clear_thinking: !(params.includeThoughts ?? true),
           },
         },
       },
@@ -75,7 +75,7 @@ export class OpenAiClient implements InferenceClient {
           chat_template_kwargs: {
             thinking: params.enableThinking ?? true,
             enable_thinking: params.enableThinking ?? true,
-            clear_thinking: !(params.includeThoughts ?? false),
+            clear_thinking: !(params.includeThoughts ?? true),
           },
         },
       },

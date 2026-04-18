@@ -41,10 +41,9 @@ export function NavSelector({
           <button
             role="combobox"
             aria-expanded={open}
-            className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            <span className="text-zinc-500 dark:text-zinc-400">{label}:</span>
-            <span className="max-w-[150px] truncate font-medium text-zinc-900 dark:text-zinc-100">
+            <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">
               {options.find((opt) => opt.value === value)?.label || value}
             </span>
             <ChevronsUpDown className="ml-1 size-3 shrink-0 opacity-50" />

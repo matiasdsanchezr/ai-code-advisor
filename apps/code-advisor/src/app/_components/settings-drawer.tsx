@@ -8,9 +8,10 @@ import {
   SheetTrigger,
 } from "@workspace/ui/components/sheet"
 
-import { SystemPromptMenu } from "./system-prompt-menu"
+import { InstructionsMenu } from "./instructions-menu"
 import { loadPrompts } from "@/actions/prompt"
 import { ProviderMenu } from "./provider-menu"
+import { ModelParameters } from "./model-parameters"
 
 export async function SettingsDrawer() {
   const initialPrompts = await loadPrompts()
@@ -30,7 +31,7 @@ export async function SettingsDrawer() {
         }
       />
 
-      <SheetContent className="flex w-[300px] flex-col gap-6 sm:w-[400px]">
+      <SheetContent className="flex flex-col gap-6">
         <SheetHeader>
           <SheetTitle>Configuración de Inferencia</SheetTitle>
           <SheetDescription>
@@ -40,7 +41,8 @@ export async function SettingsDrawer() {
         </SheetHeader>
         <div className="flex flex-col gap-4 px-4">
           <ProviderMenu />
-          <SystemPromptMenu availablePrompts={initialPrompts} />
+          <ModelParameters />
+          <InstructionsMenu availablePrompts={initialPrompts} />
         </div>
       </SheetContent>
     </Sheet>

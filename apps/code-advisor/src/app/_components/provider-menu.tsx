@@ -27,9 +27,15 @@ export const ProviderMenu = () => {
   }))
 
   const handleProviderChange = (newProvider: string) => {
+    const provider = InferenceProviderEnum.safeParse(newProvider)
+    if (provider.error) {
+      console.error("Proveedor inválido")
+      return
+    }
+    const model = getModelsForProvider(provider.data)[0]
     const parsed = InferenceModelSchema.safeParse({
-      provider: newProvider,
-      model: config.model,
+      provider: provider.data,
+      model,
     })
 
     if (parsed.error) {

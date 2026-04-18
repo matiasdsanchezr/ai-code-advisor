@@ -11,18 +11,23 @@ export async function POST(req: Request) {
     messages,
     model,
     system,
+    temperature,
+    topP,
   }: {
     provider: InferenceProvider
     messages: UIMessage[]
     model: string
     system: string
+    temperature: number
+    topP: number
   } = await req.json()
 
   const result = streamText({
+    system,
     messages: await convertToModelMessages(messages),
     model,
-    system,
     provider,
+    config: { temperature, topP },
   })
 
   return result.toUIMessageStreamResponse({
