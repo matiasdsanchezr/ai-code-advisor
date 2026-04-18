@@ -25,6 +25,7 @@
     "@streamdown/code": "^1.1.0",
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
+    "@tanstack/react-virtual": "^3.13.24",
     "@workspace/ui": "workspace:*",
     "ai": "^6.0.140",
     "ai-sdk-provider-gemini-cli": "workspace:*",

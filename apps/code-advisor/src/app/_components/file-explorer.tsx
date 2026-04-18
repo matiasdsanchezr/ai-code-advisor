@@ -4,9 +4,9 @@ import type { FileTreeNode } from "@/actions/get-file-tree"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { useFileSelection, type NodeState } from "@/hooks/use-file-selection"
 import { cn } from "@/lib/utils"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
-import { memo, useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useRef, useState } from "react"
 
 interface FileExplorerProps {
   treeNodes: FileTreeNode[]
@@ -26,7 +26,11 @@ interface FileExplorerProps {
   disabled?: boolean
 }
 
-// Componente memoizado para checkbox con estado indeterminado
+interface FlattenedNode {
+  node: FileTreeNode
+  depth: number
+}
+
 const IndeterminateCheckbox = memo(function IndeterminateCheckbox({
   checked,
   indeterminate,
@@ -42,17 +46,17 @@ const IndeterminateCheckbox = memo(function IndeterminateCheckbox({
 }) {
   return (
     <Checkbox
-      checked={indeterminate ? false : checked}
+      checked={checked}
       indeterminate={indeterminate}
       onCheckedChange={(val) => onCheckedChange(!!val)}
       className={cn("h-5 w-5 shrink-0 md:h-4 md:w-4", className)}
       onClick={(e) => e.stopPropagation()}
       disabled={disabled}
+      aria-checked={indeterminate ? "mixed" : checked}
     />
   )
 })
 
-// Hook local para gestionar expansión de nodos (controlable y persistente)
 function useTreeExpansion(initialExpanded?: Set<string>) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
     initialExpanded ?? new Set()
@@ -75,7 +79,7 @@ function useTreeExpansion(initialExpanded?: Set<string>) {
     [expandedNodes]
   )
 
-  return { toggleExpand, isExpanded }
+  return { toggleExpand, isExpanded, expandedNodes }
 }
 
 interface TreeNodeRowProps {
@@ -87,6 +91,8 @@ interface TreeNodeRowProps {
   onToggleExpand: (nodeId: string) => void
   isExpanded: (nodeId: string) => boolean
   disabled: boolean
+  style: React.CSSProperties
+  rowIndex: number
 }
 
 const TreeNodeRow = memo(function TreeNodeRow({
@@ -98,6 +104,8 @@ const TreeNodeRow = memo(function TreeNodeRow({
   onToggleExpand,
   isExpanded,
   disabled,
+  style,
+  rowIndex,
 }: TreeNodeRowProps) {
   const expanded = isExpanded(node.id)
 
@@ -125,23 +133,48 @@ const TreeNodeRow = memo(function TreeNodeRow({
     }
   }, [node, onToggleExpand, onToggleSelection])
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault()
+        handleRowClick()
+      }
+    },
+    [handleRowClick]
+  )
+
   const handleCheckboxChange = useCallback(() => {
     onToggleSelection(node)
   }, [node, onToggleSelection])
 
   return (
-    <li role="treeitem" aria-expanded={!node.isFile ? expanded : undefined}>
+    <div
+      style={style}
+      className="w-full px-2"
+      role="treeitem"
+      aria-expanded={!node.isFile ? expanded : undefined}
+      aria-rowindex={rowIndex + 1}
+      aria-selected={checked}
+    >
       <div className="group relative">
         <div
           onClick={handleRowClick}
+          onKeyDown={handleKeyDown}
+          tabIndex={disabled ? -1 : 0}
+          role="button"
+          aria-label={
+            node.isFile
+              ? `Seleccionar archivo ${node.name}`
+              : `${expanded ? "Colapsar" : "Expandir"} carpeta ${node.name}`
+          }
           className={cn(
-            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-accent",
+            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             "pl-[calc(var(--depth)*12px+8px)]"
           )}
           style={{ "--depth": depth } as React.CSSProperties}
         >
           {/* Chevron para carpetas */}
-          <div className="flex h-4 w-4 items-center justify-center">
+          <div className="flex h-4 w-4 shrink-0 items-center justify-center">
             {!node.isFile && (
               <span
                 className={cn(
@@ -177,7 +210,7 @@ const TreeNodeRow = memo(function TreeNodeRow({
 
         {/* Checkbox */}
         <div
-          className="absolute top-1/2 right-2 -translate-y-1/2 p-1"
+          className="absolute top-1/2 right-2 -translate-y-1/2 bg-background/50 p-1 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none"
           onClick={(e) => e.stopPropagation()}
         >
           <IndeterminateCheckbox
@@ -188,26 +221,7 @@ const TreeNodeRow = memo(function TreeNodeRow({
           />
         </div>
       </div>
-
-      {/* Renderizado recursivo de hijos */}
-      {expanded && node.children.length > 0 && (
-        <ul className="mt-0.5 ml-4 border-l border-border/40 pl-1">
-          {node.children.map((child) => (
-            <TreeNodeRow
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              selectedSet={selectedSet}
-              folderToFiles={folderToFiles}
-              onToggleSelection={onToggleSelection}
-              onToggleExpand={onToggleExpand}
-              isExpanded={isExpanded}
-              disabled={disabled}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
+    </div>
   )
 })
 
@@ -216,6 +230,7 @@ export function FileExplorer({
   totalFiles,
   disabled = false,
 }: FileExplorerProps) {
+  "use no memo"
   const {
     selectedFiles,
     selectedSet,
@@ -227,16 +242,62 @@ export function FileExplorer({
     treeNodes,
   })
 
-  const { isExpanded, toggleExpand } = useTreeExpansion()
+  const { isExpanded, toggleExpand, expandedNodes } = useTreeExpansion()
   const [activeTab, setActiveTab] = useState<"tree" | "selected">("tree")
 
   const sortedSelectedFiles = useMemo(() => {
     return [...selectedFiles].sort()
   }, [selectedFiles])
 
+  const flattenTree = useCallback(
+    (nodes: FileTreeNode[], currentDepth = 0): FlattenedNode[] => {
+      let result: FlattenedNode[] = []
+      for (const node of nodes) {
+        result.push({ node, depth: currentDepth })
+        if (
+          !node.isFile &&
+          expandedNodes.has(node.id) &&
+          node.children.length > 0
+        ) {
+          result = result.concat(flattenTree(node.children, currentDepth + 1))
+        }
+      }
+      return result
+    },
+    [expandedNodes]
+  )
+
+  const visibleTreeNodes = useMemo(
+    () => flattenTree(treeNodes),
+    [treeNodes, flattenTree]
+  )
+
+  const treeScrollRef = useRef<HTMLDivElement>(null)
+
+  // eslint-disable-next-line react-hooks/incompatible-library -- opted out of memoization via "use no memo"
+  const treeVirtualizer = useVirtualizer({
+    count: visibleTreeNodes.length,
+    getScrollElement: () => treeScrollRef.current,
+    estimateSize: () => 32,
+    overscan: 10,
+  })
+
+  const selectedScrollRef = useRef<HTMLDivElement>(null)
+
+  const selectedVirtualizer = useVirtualizer({
+    count: sortedSelectedFiles.length,
+    getScrollElement: () => selectedScrollRef.current,
+    estimateSize: () => 64,
+    overscan: 5,
+    measureElement:
+      typeof window !== "undefined"
+        ? (el) => el.getBoundingClientRect().height
+        : undefined,
+  })
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Tabs móviles */}
+      {/* Tabs para dispositivos móviles */}
       <div className="flex gap-1 rounded-lg bg-muted p-1 md:hidden">
         <Button
           onClick={() => setActiveTab("tree")}
@@ -264,9 +325,8 @@ export function FileExplorer({
         </Button>
       </div>
 
-      {/* Layout principal */}
       <div className="flex min-h-[300px] flex-col overflow-hidden rounded-xl border bg-card md:h-[500px] md:flex-row">
-        {/* Panel Izquierdo: Árbol */}
+        {/* PANEL IZQUIERDO: ÁRBOL */}
         <div
           className={cn(
             "flex flex-1 flex-col border-b md:w-1/2 md:border-r md:border-b-0 lg:w-2/5",
@@ -286,30 +346,50 @@ export function FileExplorer({
             </Badge>
           </div>
 
-          <ScrollArea className="flex-1 overflow-y-auto p-2">
-            <ul
-              className="space-y-0.5"
+          <div
+            ref={treeScrollRef}
+            className="flex-1 overflow-y-auto"
+            style={{ contain: "content" }}
+          >
+            <div
               role="tree"
               aria-label="Explorador de archivos"
+              aria-rowcount={visibleTreeNodes.length}
+              style={{
+                height: `${treeVirtualizer.getTotalSize()}px`,
+                width: "100%",
+                position: "relative",
+              }}
             >
-              {treeNodes.map((node) => (
-                <TreeNodeRow
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  selectedSet={selectedSet}
-                  folderToFiles={folderToFiles}
-                  onToggleSelection={toggleFile}
-                  onToggleExpand={toggleExpand}
-                  isExpanded={isExpanded}
-                  disabled={disabled}
-                />
-              ))}
-            </ul>
-          </ScrollArea>
+              {treeVirtualizer.getVirtualItems().map((virtualRow) => {
+                const { node, depth } = visibleTreeNodes[virtualRow.index]!
+                return (
+                  <TreeNodeRow
+                    key={node.id}
+                    node={node}
+                    depth={depth}
+                    selectedSet={selectedSet}
+                    folderToFiles={folderToFiles}
+                    onToggleSelection={toggleFile}
+                    onToggleExpand={toggleExpand}
+                    isExpanded={isExpanded}
+                    disabled={disabled}
+                    rowIndex={virtualRow.index}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  />
+                )
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Panel Derecho: Seleccionados */}
+        {/* PANEL DERECHO: SELECCIONADOS */}
         <div
           className={cn(
             "flex flex-1 flex-col md:w-1/2 lg:w-3/5",
@@ -345,8 +425,8 @@ export function FileExplorer({
                     <AlertDialogHeader>
                       <AlertDialogTitle>¿Limpiar selección?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Se deseleccionarán {selectedFiles.length} archivos. Esta
-                        acción no se puede deshacer.
+                        Se de-seleccionarán {selectedFiles.length} archivos.
+                        Esta acción no se puede deshacer.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -364,7 +444,7 @@ export function FileExplorer({
             </div>
           </div>
 
-          <ScrollArea className="flex-1 overflow-y-auto p-3">
+          <div ref={selectedScrollRef} className="flex-1 overflow-y-auto px-3">
             {sortedSelectedFiles.length === 0 ? (
               <div className="flex h-40 flex-col items-center justify-center gap-3 text-muted-foreground">
                 <span className="icon-[fa7-solid--arrow-pointer] h-8 w-8 opacity-50" />
@@ -373,55 +453,76 @@ export function FileExplorer({
                 </p>
               </div>
             ) : (
-              <ul className="space-y-1.5">
-                {sortedSelectedFiles.map((file) => {
+              <div
+                style={{
+                  height: `${selectedVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                  marginTop: "12px",
+                }}
+              >
+                {selectedVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const file = sortedSelectedFiles[virtualRow.index]!
                   const parts = file.split("/")
                   const fileName = parts.pop() ?? file
                   const folderPath = parts.join("/")
 
                   return (
-                    <li
+                    <div
                       key={file}
-                      className="group relative flex flex-col gap-0.5 overflow-hidden rounded-md border bg-card p-2.5 transition-all hover:border-primary/20 hover:shadow-sm"
+                      ref={(el) => {
+                        selectedVirtualizer.measureElement(el)
+                      }}
+                      data-index={virtualRow.index}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                        paddingBottom: "6px",
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="icon-[fa7-solid--file-code] h-3.5 w-3.5 shrink-0 text-primary" />
-                        <span className="flex-1 truncate text-[13px] font-medium">
-                          {fileName}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-                          onClick={() =>
-                            toggleFile({
-                              id: file,
-                              name: fileName,
-                              isFile: true,
-                              filePath: file,
-                              children: [],
-                            })
-                          }
-                          disabled={disabled}
-                          aria-label={`Eliminar ${fileName} de la selección`}
-                        >
-                          <span className="icon-[fa7-solid--xmark] h-3.5 w-3.5" />
-                        </Button>
+                      <div className="group relative flex flex-col justify-center gap-0.5 overflow-hidden rounded-md border bg-card p-2.5 transition-all hover:border-primary/20 hover:shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="icon-[fa7-solid--file-code] h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span className="flex-1 truncate text-[13px] font-medium">
+                            {fileName}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                            onClick={() =>
+                              toggleFile({
+                                id: file,
+                                name: fileName,
+                                isFile: true,
+                                filePath: file,
+                                children: [],
+                              })
+                            }
+                            disabled={disabled}
+                            aria-label={`Eliminar ${fileName} de la selección`}
+                          >
+                            <span className="icon-[fa7-solid--xmark] h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        {folderPath && (
+                          <span
+                            title={file}
+                            className="truncate pl-5 font-mono text-[10px] text-muted-foreground"
+                          >
+                            {folderPath}/
+                          </span>
+                        )}
                       </div>
-                      {folderPath && (
-                        <span
-                          title={file}
-                          className="truncate pl-5 font-mono text-[10px] text-muted-foreground"
-                        >
-                          {folderPath}/
-                        </span>
-                      )}
-                    </li>
+                    </div>
                   )
                 })}
-              </ul>
+              </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
       </div>
     </div>
