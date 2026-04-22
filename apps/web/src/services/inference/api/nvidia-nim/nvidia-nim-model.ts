@@ -15,5 +15,5 @@ export const NvidiaNimModelEnum = z.enum([
   "qwen/qwen3-coder-480b-a35b-instruct",
   "stepfun-ai/step-3.5-flash",
   "z-ai/glm4.7",
-  "z-ai/glm5",
+  "z-ai/glm-5.1",
 ])

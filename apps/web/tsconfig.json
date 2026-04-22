@@ -2,7 +2,6 @@
   "extends": "@workspace/typescript-config/nextjs.json",
   "compilerOptions": {
     "target": "ES2024",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]

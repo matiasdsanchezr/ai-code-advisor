@@ -1,9 +1,5 @@
 import { ActionState } from "@/types/action-state"
-
-export type ImageFile = {
-  mimeType: string
-  content: string
-}
+import { ImageFile } from "@/types/image-file"
 
 export const fetchImage = async (src: string): Promise<ImageFile> => {
   const response = await fetch(src)

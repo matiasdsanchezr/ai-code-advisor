@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
-    "dev": "turbo dev --filter=./apps/code-advisor",
+    "dev": "turbo dev --filter=./apps/web",
     "lint": "turbo lint",
     "format": "turbo format",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "start": ""
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",

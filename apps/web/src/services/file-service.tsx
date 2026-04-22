@@ -15,6 +15,8 @@ type Extension = `.${string}`
 
 export const DEFAULT_IGNORE = new Set([
   "node_modules",
+  ".idea",
+  ".vscode",
   ".git",
   ".next",
   "dist",
@@ -30,6 +32,7 @@ const CODE_EXTENSIONS: ReadonlySet<Extension> = new Set([
   ".js",
   ".mjs",
   ".jsx",
+  ".py",
 ])
 const ALLOWED_EXTENSIONS: ReadonlySet<Extension> = new Set([
   ...CODE_EXTENSIONS,
@@ -159,7 +162,7 @@ export class FileService {
             .filter(Boolean)
 
           for (const specifier of specifiers) {
-            const potentialPath = this.resolveImportPath(currentPath, specifier)
+            const potentialPath = this.resolveImportPath(currentPath, specifier!)
             if (potentialPath) {
               const resolved = await this.resolveWithExtensions(potentialPath)
               if (resolved) dependencies.add(resolved)

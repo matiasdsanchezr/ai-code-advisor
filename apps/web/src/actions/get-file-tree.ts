@@ -73,8 +73,8 @@ function getCommonRootDirectory(paths: string[]): string {
   const common: string[] = []
 
   for (let i = 0; i < minLen; i++) {
-    if (segmentedPaths.every((s) => s[i] === segmentedPaths[0][i])) {
-      common.push(segmentedPaths[0][i])
+    if (segmentedPaths.every((s) => s[i] === segmentedPaths[0]?.[i])) {
+      common.push(segmentedPaths[0]![i]!)
     } else {
       break
     }

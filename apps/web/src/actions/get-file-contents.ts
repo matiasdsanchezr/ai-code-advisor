@@ -4,7 +4,8 @@ import { fileService } from "@/services/file-service"
 import { ActionState } from "@/types/action-state"
 import { FileContent } from "@/types/file-content"
 import { z } from "zod"
-import { fetchImage, ImageFile } from "./fetch-image"
+import { fetchImage } from "./fetch-image"
+import { ImageFile } from "@/types/image-file"
 
 const GeneratePromptSchema = z.object({
   filePaths: z.array(z.string().trim().min(1)).min(0).max(200),

@@ -1,4 +1,4 @@
-import { ImageFile } from "@/actions/fetch-image"
+import { ImageFile } from "@/types/image-file"
 import { InferenceProvider } from "@/services/inference/schemas/provider-schema"
 import { InferenceModel } from "@/services/inference/types/inference-model"
 import { AgentResponse } from "@/types/agent-response"

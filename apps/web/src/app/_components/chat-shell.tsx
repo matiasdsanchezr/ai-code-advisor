@@ -471,7 +471,7 @@ export const ChatShellContent = ({
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="min-h-[200px] transition-all duration-500 ease-in-out">
+            <div className="min-h-50 transition-all duration-500 ease-in-out">
               {messages.length > 1 ? (
                 <div className="prose prose-sm dark:prose-invert overflow-anchor-none max-w-none p-6">
                   <Reasoning className="w-full" isStreaming={isStreaming}>
